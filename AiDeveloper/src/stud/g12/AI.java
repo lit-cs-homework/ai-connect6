@@ -1,4 +1,4 @@
-package stud.g02;
+package stud.g12;
 
 import core.board.PieceColor;
 import core.game.Game;
@@ -7,10 +7,24 @@ import core.game.Move;
 import java.util.ArrayList;
 
 public class AI extends core.player.AI {
-	// 搜索的深度
+	private Move bestMove;
+
+	@Override
+	public String name() { /*AlphaCatV2*/return "G12";}
+
+	@Override
+	public void playGame(Game game) {
+		super.playGame(game);
+		board = new BoardPro();
+	}
+	private BoardPro board = null;
+	PieceColor color;
+
 	private static final int MAX_DEPTH = 3;
-	/* 记录一下行棋的序列 */
 	ArrayList<MovePro> moveOrder = new ArrayList<>();
+
+	public AI() {
+	}
 
 	@Override
 	public Move findNextMove(Move opponentMove) {
@@ -35,7 +49,6 @@ public class AI extends core.player.AI {
 		for (int i = 3; i <= 27; i += 2) {
 			if (DTSS(i)) {
 				board.makeMove(bestMove);
-
 				return bestMove;
 			}
 		}
@@ -43,7 +56,6 @@ public class AI extends core.player.AI {
 		alphaBeta(-Integer.MAX_VALUE, Integer.MAX_VALUE,1, MAX_DEPTH);
 
 		if (bestMove == null) {
-			//随意在棋盘上找位置，然后对每个位置进行排序
 			ArrayList<MovePro> moves = board.findGenerateMoves();
 			moves.sort(MovePro.scoreComparator);
 			bestMove = moves.get(0);
@@ -53,16 +65,13 @@ public class AI extends core.player.AI {
 	}
 
 	boolean DTSS(int depth) {
-		// depth为0，搜索达到最大深度还没有找到连续双威胁的情况，return false；
 		if (depth == 0)
 			return false;
-		// 当我方行棋时
 		if (color == board.whoseMove()) {
 			// 如果对方对我方存在威胁，但是我方对对方没有威胁
 			if (board.countAllThreats(color) > 0 && board.countAllThreats(color.opposite()) == 0)
 				return false;
 
-			// 找到我方行棋成为双威胁的所有着法
 			ArrayList<MovePro> movesList = board.findDoubleThreats();
 			for (MovePro move : movesList) {
 				board.makeMove(move);
@@ -70,20 +79,15 @@ public class AI extends core.player.AI {
 				boolean flag = DTSS(depth - 1);
 				moveOrder.remove(moveOrder.size() - 1);
 				board.undoMove(move);
-				// 根据算法，存在即可返回true
 				if (flag)
 					return true;
 			}
 			return false;
-		}
-		// 对方行棋时
-		else {
-			// 如果堵不住我方对于对方的威胁
+		} else {
 			if (board.countAllThreats(board.whoseMove()) >= 3) {
 				bestMove = moveOrder.get(0);
 				return true;
 			}
-			// 找到对方用来堵的所有着法
 			ArrayList<MovePro> movesList = board.findDoubleBlocks();
 			for (MovePro move : movesList) {
 				board.makeMove(move);
@@ -91,7 +95,7 @@ public class AI extends core.player.AI {
 				boolean flag = DTSS(depth - 1);
 				moveOrder.remove(moveOrder.size() - 1);
 				board.undoMove(move);
-				// 根据算法，必须全部可以出现双威胁，否则 搜索失败
+
 				if (!flag)
 					return false;
 			}
@@ -99,31 +103,26 @@ public class AI extends core.player.AI {
 		}
 	}
 
-	public int alphaBeta(int alpha,int beta, int turn, int depth) {
+	public int alphaBeta(int alpha, int beta, int turn, int depth) {
+		//用评估函数来计算叶子结点的得分
 		if (board.gameOver() || depth <= 0) {
-			//叶子结点返回评价值
-			int evaluateScore = RoadTable.evaluateChessScore(color, board.getRoadTable());
+			int evaluateScore = stud.g12.RoadTable.evaluateChessStatus(color, board.getRoadTable());
 			return evaluateScore;
 		}
 		ArrayList<MovePro> moves = null;
 		int threats = board.countAllThreats(board.whoseMove());
 		if (threats == 0) {
-			//对方对自己没有威胁，找一步对自己最优的棋下
 			moves = board.findGenerateMoves();
 		} else if (threats == 1) {
-			//对方对自己有单威胁，需要进行单威胁防御
 			moves = board.findSingleBlocks();
 		} else if (threats == 2) {
-			//对方对自己有双威胁，需要进行双威胁防御
 			moves = board.findDoubleBlocks();
 		} else {
-			//对方对自己有三威胁，需要进行三威胁防御
 			moves = board.findTripleBlocks();
 		}
 
-		//轮到自己下棋
+		//该我方落子
 		if (turn == 1){
-			// 启发式排序
 			int tAlpha;
 			moves.sort(MovePro.scoreComparator);
 			for (MovePro move : moves) {
@@ -131,7 +130,7 @@ public class AI extends core.player.AI {
 				tAlpha = alphaBeta(alpha, beta,0, depth - 1);
 				board.undoMove(move);
 
-				//子节点的beta > alpha，更新
+				//子节点的alpha值大于父结点的alpha值，更新
 				if (tAlpha > alpha){
 					alpha = tAlpha;
 					if (depth == MAX_DEPTH){
@@ -152,9 +151,9 @@ public class AI extends core.player.AI {
 				}
 			}
 			return alpha;
-		} else {
-			//min
-			// 启发式排序
+		}
+		//该对面落子
+		else{
 			int tBeta;
 			moves.sort(MovePro.scoreComparator);
 			for (MovePro move : moves) {
@@ -172,24 +171,4 @@ public class AI extends core.player.AI {
 			return beta;
 		}
 	}
-
-
-	private Move bestMove;
-
-	@Override
-	public String name() {
-		// TODO Auto-generated method stub
-		// AlphaCatV3
-		return "G02";
-	}
-
-	@Override
-	public void playGame(Game game) {
-		super.playGame(game);
-		board = new BoardPro();
-	}
-
-	// 自己保有的棋盘
-	private BoardPro board = null;
-	PieceColor color;
 }
